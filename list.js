@@ -3,6 +3,10 @@
   const tbody   = document.querySelector('#event-body');
   const loading = document.querySelector('#loading');
 
+  // Dashboard elements
+  const dashTotalEl = document.querySelector('#countTotalList');
+  const dashShownEl = document.querySelector('#countShownList');
+
   // ฟิลเตอร์
   const els = {
     q:        document.querySelector('#q'),
@@ -26,8 +30,6 @@
   const contains = (a,b) => norm(a).includes(norm(b));
   const parseDate = (v) => { if (!v) return null; const d=new Date(v); return isNaN(d)?null:d; };
   const safeVal = el => (el && 'value' in el) ? el.value : '';
-
-  // ดึงค่าจุดประสงค์ไม่ว่าจะใช้หัว "จุดประสงค์" หรือ "วัตถุประสงค์"
   const getPurpose = r => r['จุดประสงค์'] ?? r['วัตถุประสงค์'] ?? '';
 
   function fillOptions(el, values, placeholder){
@@ -58,6 +60,17 @@
     fillOptions(els.purpose,  sPurpose,  'ทุกจุดประสงค์');
   }
 
+  // ✅ อัปเดต Dashboard (นับเฉพาะแถวที่มีวันที่สำหรับ "ทั้งหมด")
+  function updateDashboard(){
+    if (dashTotalEl){
+      const totalWithDate = all.filter(r => parseDate(r['วันที่'])).length;
+      dashTotalEl.textContent = String(totalWithDate);
+    }
+    if (dashShownEl){
+      dashShownEl.textContent = String(view.length);
+    }
+  }
+
   function applyFilters(){
     const q         = norm(safeVal(els.q));
     const fCountry  = safeVal(els.country).trim();
@@ -73,20 +86,24 @@
       const country  = (r['ประเทศ'] ?? '').trim();
       const purpose  = (getPurpose(r) ?? '').trim();
 
-      // ค้นหาแบบรวมหลายฟิลด์
-      const okQ = !q || [r['ชื่อวัด'], r['อำเภอ'], r['จังหวัด'], getPurpose(r)].some(v=>contains(v,v==null?'':v));
+      // ❗ซ่อนรายการที่ "ไม่มีวันที่" เสมอ (ตามที่กำหนดก่อนหน้า)
+      const d = parseDate(r['วันที่']);
+      if (!d) return false;
+
+      // ค้นหา
+      const okQ = !q || [r['ชื่อวัด'], r['อำเภอ'], r['จังหวัด'], getPurpose(r)].some(v=>contains(v ?? '', q));
       if (!okQ) return false;
 
+      // ตัวกรอง select ต่าง ๆ
       if (fCountry  && !trimEq(country,  fCountry))  return false;
       if (fProvince && !trimEq(province, fProvince)) return false;
       if (fDistrict && !trimEq(district, fDistrict)) return false;
       if (fPurpose  && !trimEq(purpose,  fPurpose))  return false;
 
-      if (df || dt){
-        const d = parseDate(r['วันที่']); if (!d) return false;
-        if (df && d < new Date(df.getFullYear(), df.getMonth(), df.getDate())) return false;
-        if (dt && d > new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 23,59,59,999)) return false;
-      }
+      // ช่วงวันที่ (optional) — หน้ารายการ "ไม่ซ่อนอดีต"
+      if (df && d < new Date(df.getFullYear(), df.getMonth(), df.getDate())) return false;
+      if (dt && d > new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 23,59,59,999)) return false;
+
       return true;
     });
 
@@ -108,6 +125,7 @@
     view = rows;
     renderTable(rows);
     updateSortHeaders();
+    updateDashboard(); // ✅ อัปเดตตัวเลข
   }
 
   function renderTable(rows){
@@ -128,9 +146,7 @@
     document.querySelectorAll('thead th.th-sort').forEach(th=>{
       th.classList.remove('asc','desc');
       const key = th.getAttribute('data-key');
-      if (key === sortState.key){
-        th.classList.add(sortState.dir);
-      }
+      if (key === sortState.key){ th.classList.add(sortState.dir); }
     });
   }
 
@@ -176,7 +192,8 @@
       const data = await fetchEvents();
       all = Array.isArray(data) ? data : [];
       buildFacetSets(all);
-      applyFilters();
+      applyFilters();        // จะเรียก updateDashboard ภายใน
+      updateDashboard();     // กันเผื่อ initial state
     }catch(e){
       console.error(e);
       Swal.fire({icon:'error', title:'โหลดข้อมูลไม่สำเร็จ', text:'ตรวจสอบ URL Web App / สิทธิ์เข้าถึง', confirmButtonText:'ปิด'});
