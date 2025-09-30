@@ -1,0 +1,128 @@
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');
+
+:root{
+  --mac-bg: #f5f5f7;
+  --mac-card: #ffffff;
+  --mac-border: #e6e6ea;
+  --mac-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  --mac-blur: blur(8px);
+}
+
+*{ box-sizing: border-box; }
+
+html, body { height: 100%; }
+body{
+  margin: 0;
+  font-family: 'Sarabun', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans Thai", sans-serif;
+  background: linear-gradient(180deg, #fafafb 0%, #f1f2f6 100%);
+  color:#222;
+  overflow-x: hidden;
+}
+
+.app{
+  min-height: 100dvh;
+  display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+main{ flex: 1; display: block; }
+
+/* Navbar macOS glassy + sticky */
+.navbar{
+  position: sticky; top: 0;
+  z-index: 1030;
+  backdrop-filter: var(--mac-blur);
+  background: rgba(255,255,255,0.75) !important;
+  border-bottom: 1px solid var(--mac-border);
+}
+
+/* ⬇️ ขยายความกว้าง container ให้กว้างขึ้น */
+.container-mac{
+  width: min(100%, 1400px);  /* เดิม 1200px */
+  margin: 20px auto;
+  padding: 0 clamp(12px, 3vw, 24px);
+}
+
+.card-mac{
+  background: var(--mac-card);
+  border: 1px solid var(--mac-border);
+  border-radius: 18px;
+  box-shadow: var(--mac-shadow);
+}
+
+.mac-window{
+  border-bottom: 1px solid var(--mac-border);
+  padding: 12px 16px;
+  display:flex; align-items:center; gap:8px;
+}
+.mac-dots{ display:flex; gap:8px; }
+.mac-dot{ width:12px; height:12px; border-radius:50%; }
+.mac-dot.red{ background:#ff5f56; }
+.mac-dot.yellow{ background:#ffbd2e; }
+.mac-dot.green{ background:#27c93f; }
+
+.badge-soft{
+  background: #f1f3ff; color: #2b42ff;
+  border: 1px solid #e1e6ff;
+  border-radius: 999px; padding: 4px 10px;
+  font-weight: 600; font-size: 12px;
+}
+
+.btn-mac{ border-radius: 12px; }
+
+.table-mac thead th{
+  background: #fafbff;
+  position: sticky; top: 0; z-index: 1;
+}
+
+/* ⬇️ ทำให้แถวตารางกดได้ + ไฮไลต์เมื่อ hover */
+.table-mac tbody tr{
+  cursor: pointer;
+}
+.table-mac tbody tr:hover{
+  background: #f8faff;
+}
+
+.table-responsive{
+  border-radius: 12px;
+}
+
+/* Holder ที่ยืดพอดีหน้าจอ */
+.card-mac .p-3{ display:flex; flex-direction:column; gap:12px; }
+.card-mac .table-holder{
+  min-height: 0;
+  max-height: clamp(300px, 60dvh, 72dvh);
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid var(--mac-border);
+}
+
+/* Map */
+#map{
+  height: clamp(320px, 60dvh, 78dvh);
+  border-radius: 16px;
+  border:1px solid var(--mac-border);
+}
+
+footer{
+  color:#777; font-size: 13px; text-align:center; padding: 18px 0 24px;
+}
+
+/* --- Sorting Icons --- */
+.th-sort { user-select:none; cursor:pointer; white-space:nowrap; }
+.th-sort .sort-ind{ display:inline-block; width:.8em; margin-left:.35rem; opacity:.6; }
+.th-sort.asc  .sort-ind::after{ content:"▲"; }
+.th-sort.desc .sort-ind::after{ content:"▼"; }
+
+/* Filters */
+.filters .form-select, .filters .form-control { border-radius: 12px; }
+.filters .btn { border-radius: 12px; }
+
+@media (max-width: 576px){
+  .container-mac{ margin: 12px auto; }
+  .card-mac .table-holder{ max-height: 60svh; }
+  .table-mac th, .table-mac td{ font-size: 14px; }
+}
