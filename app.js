@@ -7,7 +7,7 @@ function toThaiLongDateBuddhist(input){
   if (!input) return '';
   let d;
   if (input instanceof Date) d = input;
-  else if (!isNaN(input)) d = new Date(Math.round((Number(input) - 25569) * 86400 * 1000));
+  else if (!isNaN(input)) d = new Date(Math.round((Number(input) - 25569) * 86400 * 1000)); // excel serial
   else d = new Date(input);
 
   if (String(input).match(/[ก-๙]/)) {
@@ -40,7 +40,7 @@ function extractUrls(s){
   return String(s).replace(/\u200B/g,'').split(/[\s,]+/g).map(x=>x.trim()).filter(Boolean).filter(isUrl);
 }
 
-/** ✅ ฟังก์ชันเปิด Google Maps แบบ deep link (มือถือ) + fallback */
+/** ✅ เปิด Google Maps แบบ deep link (มือถือ) + fallback เว็บ */
 function openMapDeepLink(lat, lng){
   const gmapsWeb = `https://www.google.com/maps?q=${lat},${lng}`;
   const ua = navigator.userAgent || '';
@@ -49,34 +49,49 @@ function openMapDeepLink(lat, lng){
 
   let appUrl = '';
   if (isIOS){
-    // เปิดแอป Google Maps ถ้ามี (iOS)
     appUrl = `comgooglemaps://?q=${lat},${lng}&center=${lat},${lng}&zoom=16`;
   }else if (isAndroid){
-    // เปิดแอป Google Maps ถ้ามี (Android)
     appUrl = `intent://maps.google.com/?q=${lat},${lng}#Intent;scheme=https;package=com.google.android.apps.maps;end`;
   }
 
   if (appUrl){
-    // พยายามเปิดแอป แล้ว fallback ไปเว็บถ้าไม่ได้
     const t = setTimeout(()=>{ window.open(gmapsWeb, '_blank', 'noopener'); }, 1200);
-    // ใช้ location.href เพื่อกระตุ้น deep link
     window.location.href = appUrl;
-    // ป้องกันไม่ให้ค้าง timeout ถ้าเปิดแอปสำเร็จ (หน้าอาจถูกพัก/เปลี่ยนโฟกัส)
     window.addEventListener('pagehide', ()=>clearTimeout(t), { once:true });
     window.addEventListener('blur', ()=>clearTimeout(t), { once:true });
   }else{
-    // เดสก์ท็อป → เปิดหน้าเว็บ Google Maps
     window.open(gmapsWeb, '_blank', 'noopener');
   }
 }
 
-/** ตารางรายละเอียดสำหรับ SweetAlert2 (มีป้ายฯ, Facebook, ปุ่มเปิดแผนที่แบบ deep link) */
+/** ✅ คัดลอกข้อความไปคลิปบอร์ด + Toast แจ้งผล */
+async function copyToClipboard(text){
+  try{
+    await navigator.clipboard.writeText(String(text ?? ''));
+    Swal.fire({
+      toast: true, position: 'top-end', timer: 1600, showConfirmButton: false,
+      icon: 'success', title: 'คัดลอกแล้ว'
+    });
+  }catch(e){
+    // เผื่อ clipboard API ไม่พร้อม
+    const ta = document.createElement('textarea');
+    ta.value = String(text ?? '');
+    ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    Swal.fire({
+      toast: true, position: 'top-end', timer: 1600, showConfirmButton: false,
+      icon: 'success', title: 'คัดลอกแล้ว'
+    });
+  }
+}
+
+/** ตารางรายละเอียดสำหรับ SweetAlert2 (มีป้ายฯ, Facebook, ปุ่มเปิดแผนที่แบบ deep link, และปุ่มคัดลอกเลขที่บัญชี) */
 function buildDetailTable(item){
-  // ป้ายประชาสัมพันธ์ (รูปจาก URL)
+  // --- ป้ายประชาสัมพันธ์ ---
   const bannerVal = item['ป้ายประชาสัมพันธ์'] ?? '';
-  let bannerHtml = '';
   const bannerUrls = extractUrls(bannerVal);
-  bannerHtml = bannerUrls.length
+  const bannerHtml = bannerUrls.length
     ? `<div class="d-flex flex-wrap gap-2">${
         bannerUrls.map(u=>`
           <a href="${escapeHtml(u)}" target="_blank" rel="noopener">
@@ -86,20 +101,19 @@ function buildDetailTable(item){
       }</div>`
     : escapeHtml(bannerVal || '');
 
-  // Facebook ลิงก์สั้น
+  // --- Facebook (ลิงก์สั้น) ---
   const fbVal = item['Facebook'] ?? '';
   const fbUrls = extractUrls(fbVal);
   const facebookHtml = fbUrls.length
     ? fbUrls.map((u,i)=>`<a href="${escapeHtml(u)}" target="_blank" rel="noopener">เปิด Facebook${fbUrls.length>1?` (${i+1})`:''}</a>`).join(' • ')
     : escapeHtml(fbVal || '');
 
-  // พิกัด + ปุ่ม deep link
+  // --- พิกัด + ปุ่ม deep link ---
   const coordVal = (item['พิกัด'] ?? '').trim();
   let coordHtml = escapeHtml(coordVal);
-  let lat=null, lng=null;
   if (coordVal && coordVal.includes(',')){
     const [latStr,lngStr] = coordVal.split(',').map(s=>s.trim());
-    lat = parseFloat(latStr); lng = parseFloat(lngStr);
+    const lat = parseFloat(latStr), lng = parseFloat(lngStr);
     if (!isNaN(lat) && !isNaN(lng)){
       coordHtml = `
         <div class="d-flex flex-column flex-sm-row align-items-start gap-2">
@@ -112,6 +126,22 @@ function buildDetailTable(item){
     }
   }
 
+  // --- เลขที่บัญชี + ปุ่มคัดลอก ---
+  const acctRaw = String(item['เลขที่บัญชี'] ?? '').trim();
+  const acctHtml = acctRaw
+    ? `
+      <div class="d-flex flex-column flex-sm-row align-items-start gap-2">
+        <span class="font-monospace">${escapeHtml(acctRaw)}</span>
+        <button class="btn btn-sm btn-outline-secondary"
+                data-copy="${escapeHtml(acctRaw)}"
+                onclick="window.__COPY__(this.dataset.copy)">
+          📋 คัดลอก
+        </button>
+      </div>
+    `
+    : '';
+
+  // --- รวมรายการข้อมูลลงในตาราง ---
   const entries = [
     ['ชื่อวัด', item['ชื่อวัด']],
     ['วันที่', toThaiLongDateBuddhist(item['วันที่'])],
@@ -122,7 +152,8 @@ function buildDetailTable(item){
     ['พิกัด', { __html: coordHtml }],
     ['จุดประสงค์', item['จุดประสงค์'] ?? item['วัตถุประสงค์'] ?? ''],
     ['ธนาคาร', item['ธนาคาร']],
-    ['เลขที่บัญชี', item['เลขที่บัญชี']],
+    // ใช้ acctHtml (มีปุ่มคัดลอก)
+    ['เลขที่บัญชี', { __html: acctHtml }],
     ['ชื่อบัญชี', item['ชื่อบัญชี']],
     ['ป้ายประชาสัมพันธ์', { __html: bannerHtml }],
     ['เบอร์ติดต่อ', item['เบอร์ติดต่อ']],
@@ -145,12 +176,12 @@ function buildDetailTable(item){
   }).join('');
 
   return `
-    <div class="table-responsive">
-      <table class="table table-sm">
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-  `;
+  <div class="table-responsive text-start">
+    <table class="table table-sm">
+      <tbody>${rows}</tbody>
+    </table>
+  </div>
+`;
 }
 
 async function fetchEvents(){
@@ -175,5 +206,47 @@ function showDetail(item){
 window.__GATHIN_APP__ = {
   fetchEvents, toThaiLongDateBuddhist, showDetail, escapeHtml
 };
-// export deep link function
+// export deep link & copy
 window.__OPEN_MAP__ = openMapDeepLink;
+window.__COPY__ = copyToClipboard;
+
+// ===== Disclaimer popup on first visit =====
+(function(){
+  const KEY = 'gathin_disclaimer_ack_v1';
+
+  function showDisclaimer(){
+    // ถ้าเคยกดยอมรับและติ๊ก "ไม่ต้องแสดงอีก" แล้ว ให้ข้าม
+    if (localStorage.getItem(KEY) === '1') return;
+
+    Swal.fire({
+      icon: 'info',
+      title: 'ข้อจำกัดความรับผิดชอบ',
+      html: `
+        <div class="text-start">
+          <p><strong>ระบบนี้เป็นการรวบรวมข้อมูลคร่าว ๆ เกี่ยวกับงานกฐินเท่านั้น</strong></p>
+          <ul class="mb-2">
+            <li>ข้อมูลอาจมีการเปลี่ยนแปลง แนะนำให้ตรวจสอบกับผู้จัดงานหรือช่องทางทางการอีกครั้ง</li>
+            <li>ผู้พัฒนาระบบไม่รับผิดชอบต่อความคลาดเคลื่อน ความล่าช้า หรือความเสียหายใด ๆ จากการใช้งานข้อมูลนี้</li>
+          </ul>
+          <p class="mb-0"><small>หากพบข้อมูลผิดพลาด โปรดแจ้งผู้ดูแลเพื่อปรับปรุง</small></p>
+        </div>
+      `,
+      confirmButtonText: 'เข้าใจแล้ว',
+      input: 'checkbox',
+      inputPlaceholder: 'ไม่ต้องแสดงอีก',
+      allowOutsideClick: false,
+      customClass: { popup: 'card-mac' }
+    }).then(res=>{
+      // ถ้าติ๊ก "ไม่ต้องแสดงอีก" ให้จำ
+      if (res && res.value) {
+        try { localStorage.setItem(KEY, '1'); } catch(e){}
+      }
+    });
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', showDisclaimer);
+  } else {
+    showDisclaimer();
+  }
+})();
